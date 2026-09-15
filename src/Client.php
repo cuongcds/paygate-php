@@ -70,6 +70,21 @@ final class Client
     }
 
     /**
+     * GET /api/v1/transactions/{transactionId} — see
+     * documents/03.05-transactions.md. Use this to verify the
+     * paygate_transaction_id/paygate_external_ref query params PayGate
+     * appends to your success_url/cancel_url before trusting the redirect.
+     *
+     * @param int|string $transactionId
+     * @return array{transaction_id: int, external_ref: string, plan_ref: string,
+     *   amount: int, currency: string, mode: string, status: string, created_at: string}
+     */
+    public function getTransaction($transactionId): array
+    {
+        return $this->request('GET', '/api/v1/transactions/' . rawurlencode((string) $transactionId));
+    }
+
+    /**
      * @param array<string, mixed>|null $body
      * @return array<string, mixed>
      * @throws PayGateException PayGate answered with success=false

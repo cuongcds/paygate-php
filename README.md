@@ -74,6 +74,31 @@ try {
 }
 ```
 
+## Verifying a checkout redirect
+
+`success_url`/`cancel_url` come back with `paygate_transaction_id`/`paygate_external_ref`/`paygate_status` appended — but that redirect alone is never proof of payment (it's a client-side navigation, not a signed confirmation). Verify server-side before unlocking anything:
+
+```php
+use PayGate\Client;
+use PayGate\Exceptions\PayGateException;
+
+// From your success_url handler: $_GET['paygate_transaction_id'], $_GET['paygate_external_ref']
+try {
+    $transaction = $client->getTransaction($_GET['paygate_transaction_id']);
+
+    if ($transaction['external_ref'] !== $_GET['paygate_external_ref']) {
+        throw new RuntimeException('Transaction does not belong to the expected user.');
+    }
+    if ($transaction['status'] !== 'completed') {
+        // 'pending'/'failed'/'canceled' — do not unlock anything yet
+    }
+} catch (PayGateException $e) {
+    // 'not_found' — id doesn't exist, or belongs to a different app; treat as unverified
+}
+```
+
+This also covers one-time payments (`mode: 'payment'`), which never create a subscription record — `getSubscription()` alone can't verify those.
+
 ## Error handling
 
 Every non-2xx PayGate response throws `PayGate\Exceptions\PayGateException`:
@@ -115,4 +140,4 @@ $client->createCheckoutSession([
 
 ## More examples
 
-See [`example/`](example/) for runnable scripts.
+See [`example/`](example/) for runnable scripts, including [`verify-transaction.php`](example/verify-transaction.php) for the redirect-verification flow above.
