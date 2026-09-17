@@ -117,10 +117,10 @@ A request that never reached PayGate at all (DNS, timeout, connection refused) t
 
 ## Testing your integration
 
-Pass `payment_method: 'test'` with one of the documented test card codes — see [Testing without a real Stripe account](https://github.com/cuongcds/paygate-docs/blob/main/documents/03.04-testing.md). No real Stripe account or network call needed; resolves synchronously.
+`createCheckoutSession()` never accepts `payment_method: 'test'` or a `test_card_code` — it only ever creates a pending transaction and returns a `checkout_url`, never a payment result. To test without a real Stripe account, call it without `payment_method` on an app whose environment allows the Test Payment Method (`test`/`staging`); open the returned `checkout_url` (PayGate's own hosted picker page) and choose **Test Payment Method** there with one of the documented card codes — see [Testing without a real Stripe account](https://github.com/cuongcds/paygate-docs/blob/main/documents/03.04-testing.md).
 
 ```php
-$client->createCheckoutSession([
+$session = $client->createCheckoutSession([
     'external_ref' => 'user-42',
     'plan_ref' => 'premium_1m',
     'amount' => 100000,
@@ -128,9 +128,8 @@ $client->createCheckoutSession([
     'mode' => 'payment',
     'success_url' => 'https://yourapp.com/success',
     'cancel_url' => 'https://yourapp.com/cancel',
-    'payment_method' => 'test',
-    'test_card_code' => '4242424242424242',
 ]);
+// Open $session['checkout_url'] in a browser to pick Test Payment Method there.
 ```
 
 ## Requirements

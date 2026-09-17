@@ -49,10 +49,15 @@ final class Client
      *
      * @param array<string, mixed> $params plan_ref, amount, currency, mode,
      *   success_url, cancel_url, and (HMAC only) external_ref, plus
-     *   interval/interval_count for mode=subscription. payment_method/
-     *   test_card_code are optional — omit them for the normal flow.
-     * @return array<string, mixed> the `data` object (e.g. ["checkout_url" => ...]
-     *   or ["status" => ..., "subscription" => [...]] for payment_method=test)
+     *   interval/interval_count for mode=subscription. payment_method is
+     *   optional and, when sent, must be "stripe" or "payos" — omit it
+     *   entirely for the normal flow. This endpoint never accepts "test" or
+     *   a test_card_code, and never resolves a payment result: it always
+     *   returns just ["checkout_url" => ...]. To exercise the Test Payment
+     *   Method, open the returned checkout_url (PayGate's hosted picker
+     *   page) and choose it there — see documents/03.04-testing.md.
+     * @return array<string, mixed> the `data` object, always
+     *   ["checkout_url" => string]
      */
     public function createCheckoutSession(array $params): array
     {
