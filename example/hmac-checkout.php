@@ -20,12 +20,9 @@ $client = Client::withHmac(
 try {
     $result = $client->createCheckoutSession([
         'external_ref' => 'example-user-1',
-        'plan_ref' => 'premium_1m',
-        'amount' => 199000,
-        'currency' => 'VND',
         'mode' => 'subscription',
-        'interval' => 'month',
-        'interval_count' => 1,
+        'price_id' => 'price_your_price_id',
+        'customer_id' => 'cus_your_customer_id',
         'success_url' => 'https://yourapp.com/success',
         'cancel_url' => 'https://yourapp.com/cancel',
     ]);

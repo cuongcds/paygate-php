@@ -25,12 +25,9 @@ $client = Client::withHmac(
 try {
     $result = $client->createCheckoutSession([
         'external_ref' => 'user-42',
-        'plan_ref' => 'premium_1m',
-        'amount' => 199000,
-        'currency' => 'VND',
         'mode' => 'subscription',
-        'interval' => 'month',
-        'interval_count' => 1,
+        'price_id' => 'price_abc123', // from createPlan()/listPlans()
+        'customer_id' => 'cus_abc123', // from createCustomer()
         'success_url' => 'https://yourapp.com/success',
         'cancel_url' => 'https://yourapp.com/cancel',
     ]);
@@ -66,12 +63,86 @@ use PayGate\Exceptions\PayGateException;
 
 try {
     $subscription = $client->getSubscription('user-42');
-    // ['plan_ref' => 'premium_1m', 'status' => 'active', 'current_period_end' => '2026-04-15 00:00:00']
+    // [
+    //   'plan_ref' => 'premium', 'plan_id' => 'plan_…', 'price_id' => 'price_…', 'customer_id' => 'cus_…',
+    //   'status' => 'active', 'current_period_end' => '2026-04-15 00:00:00',
+    //   'in_trial' => false, 'trial_ends_at' => null,
+    // ]
 } catch (PayGateException $e) {
     if ($e->getErrorCode() === 'not_found') {
         // user has never checked out — not necessarily an error in your flow
     }
 }
+```
+
+## Customers
+
+A subscription checkout needs a customer. Writes use HMAC auth.
+
+```php
+$customer = $client->createCustomer([
+    'name' => 'Nguyen Van A',
+    'email' => 'a@example.com',
+    'cc_emails' => ['billing@example.com'],
+    'merchant_customer_id' => 'user-42', // your own id, optional
+    'locale' => 'vi', // 'en' | 'vi'
+]);
+
+$client->getCustomer($customer['id']);
+$client->updateCustomer($customer['id'], ['locale' => 'en']); // partial update
+```
+
+## Plans and prices
+
+A plan holds many prices on sale at once (e.g. monthly, half-year, yearly). Plan writes are HMAC only.
+
+```php
+$plan = $client->createPlan([
+    'code' => 'premium',
+    'name' => 'Premium',
+    'prices' => [
+        [
+            'name' => 'Monthly',
+            'amount' => 199000,
+            'currency' => 'VND',
+            'interval_unit' => 'month',
+            'interval_count' => 1,
+            'trial' => ['amount' => 0, 'interval_unit' => 'day', 'interval_count' => 7],
+        ],
+        ['name' => 'Half-year', 'amount' => 1090000, 'currency' => 'VND', 'interval_unit' => 'month', 'interval_count' => 6],
+        ['name' => 'Yearly', 'amount' => 1990000, 'currency' => 'VND', 'interval_unit' => 'year', 'interval_count' => 1],
+    ],
+]);
+
+$active = $client->listPlans(['status' => 'active']); // or listPlans() for all
+$client->getPlan($plan['id']);
+$client->updatePlan($plan['id'], ['description' => 'All features']);
+$client->addPlanPrice($plan['id'], ['amount' => 99000, 'currency' => 'VND', 'interval_unit' => 'week', 'interval_count' => 1]);
+$client->updatePlanPrice($plan['id'], $plan['prices'][0]['id'], ['status' => 'archived']);
+```
+
+## Subscription checkout with a price
+
+For `mode: 'subscription'`, send `price_id` + `customer_id` (optionally `skip_trial`, `payment_method`, `success_url`, `cancel_url`, `external_ref`). Amount, currency and interval come from the price — do **not** send `plan_ref`, `amount`, `currency`, `interval`, `interval_count` or `plan_id`. The response is `['checkout_url' => ..., 'activated' => ..., 'trial' => ...]`.
+
+```php
+$session = $client->createCheckoutSession([
+    'mode' => 'subscription',
+    'price_id' => $plan['prices'][2]['id'],
+    'customer_id' => $customer['id'],
+    'external_ref' => 'user-42',
+    'skip_trial' => false,
+]);
+// $session['activated'] — true when no payment was needed; $session['trial'] — the applied trial or null
+```
+
+One-time payments (`mode: 'payment'`) keep `plan_ref`, `amount`, `currency`, `success_url` and `cancel_url`.
+
+## Changing a subscription's customer or price
+
+```php
+$client->setSubscriptionCustomer('user-42', 'cus_abc123');
+$client->setSubscriptionPrice('user-42', 'price_xyz789'); // HMAC only, effective from the next renewal
 ```
 
 ## Verifying a checkout redirect
@@ -140,4 +211,4 @@ $session = $client->createCheckoutSession([
 
 ## More examples
 
-See [`example/`](example/) for runnable scripts, including [`verify-transaction.php`](example/verify-transaction.php) for the redirect-verification flow above.
+See [`example/`](example/) for runnable scripts, including [`subscription-flow.php`](example/subscription-flow.php) (customer, plan with 3 prices, checkout, poll) and [`verify-transaction.php`](example/verify-transaction.php) for the redirect-verification flow above.
